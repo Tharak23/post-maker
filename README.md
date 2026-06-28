@@ -1,15 +1,16 @@
 # Post maker - hawan
 
-Full-resolution post image maker. Everything runs in your browser — no upload until you choose to use the optional API.
+Full-resolution post image maker. Everything runs in your browser — no upload for normal use.
 
 ## Templates
 
-| Template | Description |
-| --- | --- |
-| **original** (default) | Top banner — left, center, or right |
-| **v1** | Logo left + wordmark right |
-| **version2** | Logo left + wordmark right (v2) |
-| **logo-only** | Logo only — left, center, or right |
+| Template | File | Description |
+| --- | --- | --- |
+| **original** (default) | `Original1.svg` | White top banner |
+| **original-black** | `Original-Black.svg` | Black top banner |
+| **v1** | `hydrilla-post.svg` | White logo + wordmark |
+| **v1-black** | `version2.svg` | Black logo + wordmark |
+| **logo-only** | `black.svg` | Logo only |
 
 ## Run locally
 
@@ -25,30 +26,12 @@ npm run build
 vercel --prod
 ```
 
-Works on Vercel with zero configuration.
+## Quality
 
-## Network & performance
-
-| Action | Server requests | Notes |
-| --- | --- | --- |
-| Open site | 1 page load + static assets (cached) | Templates load once |
-| Upload image | **0** | Stays on your device |
-| Drag / sliders | **0** | Canvas redraws locally |
-| Download / Copy | **0** | PNG created in browser |
-| `/api/render` | 1 per call | Optional automation only |
-
-CPU usage only spikes on your device during drag or export — the server stays idle for normal use.
-
-## Supported formats
-
-PNG, JPG, and **iPhone HEIC** photos.
+- Your photo is never resized — output matches input pixels
+- SVG overlays are rasterized at **exact on-image size** (not upscaled from a tiny bitmap)
+- Export is lossless PNG
 
 ## Optional API
 
-`POST /api/render` — same result as the UI, for scripts. No auth required.
-
-```bash
-curl -X POST "http://localhost:3000/api/render?template=original&horizontal=center" \
-  -F "image=@./photo.heic" \
-  --output hawan-post.png
-```
+`POST /api/render` with `template=original-black` (or `v1`, `v1-black`, `logo-only`). No auth.

@@ -13,8 +13,9 @@ export const MAX_CANVAS_EDGE = 16384;
 
 export type TemplateId =
   | "original"
-  | "hydrilla-post"
-  | "version2"
+  | "original-black"
+  | "v1"
+  | "v1-black"
   | "logo-only";
 
 export type TemplateMode = "original" | "billboard" | "logo-only";
@@ -45,22 +46,34 @@ export type TemplateConfig = {
   };
 };
 
+const ORIGINAL_BANNER = {
+  referenceWidth: 961,
+  referenceHeight: 396,
+  logo: { x: 0, y: 0, width: 961, height: 396 },
+  defaults: { logoSize: 50, vertical: 6, horizontal: "center" as const },
+};
+
 export const TEMPLATES: Record<TemplateId, TemplateConfig> = {
   original: {
     id: "original",
     label: "Original",
-    description: "Top banner — left, center, or right",
+    description: "White top banner — left, center, or right",
     filename: "Original1.svg",
-    referenceWidth: 961,
-    referenceHeight: 396,
     mode: "original",
-    logo: { x: 0, y: 0, width: 961, height: 396 },
-    defaults: { logoSize: 50, vertical: 6, horizontal: "center" },
+    ...ORIGINAL_BANNER,
   },
-  "hydrilla-post": {
-    id: "hydrilla-post",
+  "original-black": {
+    id: "original-black",
+    label: "Original Black",
+    description: "Black top banner — left, center, or right",
+    filename: "Original-Black.svg",
+    mode: "original",
+    ...ORIGINAL_BANNER,
+  },
+  v1: {
+    id: "v1",
     label: "v1",
-    description: "Logo left + wordmark right",
+    description: "White logo left + wordmark right",
     filename: "hydrilla-post.svg",
     referenceWidth: REFERENCE_WIDTH,
     referenceHeight: REFERENCE_HEIGHT,
@@ -69,10 +82,10 @@ export const TEMPLATES: Record<TemplateId, TemplateConfig> = {
     text: { x: 1357, y: 504, width: 316, height: 93 },
     defaults: { logoSize: 9, vertical: 50, horizontal: "left" },
   },
-  version2: {
-    id: "version2",
-    label: "Version 2",
-    description: "Logo left + wordmark right (v2)",
+  "v1-black": {
+    id: "v1-black",
+    label: "v1 Black",
+    description: "Black logo left + wordmark right",
     filename: "version2.svg",
     referenceWidth: REFERENCE_WIDTH,
     referenceHeight: REFERENCE_HEIGHT,
@@ -94,6 +107,12 @@ export const TEMPLATES: Record<TemplateId, TemplateConfig> = {
   },
 };
 
+/** @deprecated Use TemplateId. Kept for old API query values. */
+const TEMPLATE_ALIASES: Record<string, TemplateId> = {
+  "hydrilla-post": "v1",
+  version2: "v1-black",
+};
+
 export const DEFAULT_SETTINGS = {
   logoSize: TEMPLATES.original.defaults.logoSize,
   vertical: TEMPLATES.original.defaults.vertical,
@@ -112,6 +131,13 @@ export type CompositorLayout = {
   logo: { src: Rect; dest: Rect };
   text: { src: Rect; dest: Rect } | null;
 };
+
+export function resolveTemplateId(id?: string | null): TemplateId {
+  if (!id) return DEFAULT_SETTINGS.templateId;
+  if (id in TEMPLATES) return id as TemplateId;
+  if (id in TEMPLATE_ALIASES) return TEMPLATE_ALIASES[id];
+  return DEFAULT_SETTINGS.templateId;
+}
 
 export function getTemplate(id: TemplateId): TemplateConfig {
   return TEMPLATES[id] ?? TEMPLATES.original;
@@ -213,10 +239,7 @@ export function parseSettings(
   templateId?: string | null,
   horizontal?: string | null,
 ): CompositorSettings {
-  const template =
-    templateId && templateId in TEMPLATES
-      ? (templateId as TemplateId)
-      : DEFAULT_SETTINGS.templateId;
+  const template = resolveTemplateId(templateId);
   const templateConfig = getTemplate(template);
   const defaults = getTemplateDefaults(template);
 
@@ -255,7 +278,8 @@ function clamp(value: number, min: number, max: number) {
 
 export const TEMPLATE_ORDER: TemplateId[] = [
   "original",
-  "hydrilla-post",
-  "version2",
+  "original-black",
+  "v1",
+  "v1-black",
   "logo-only",
 ];

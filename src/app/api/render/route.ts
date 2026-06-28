@@ -88,7 +88,7 @@ export async function GET() {
     fields: {
       image: "required PNG, JPG, or HEIC (max 25 MB)",
       template:
-        "optional original | hydrilla-post | version2 | logo-only, default original",
+        "optional original | original-black | v1 | v1-black | logo-only (aliases: hydrilla-post→v1, version2→v1-black)",
       logoSize: "optional — original: 20-80, others: 8-24",
       vertical: "optional — original: 2-70 from top, others: 12-88",
       horizontal:
