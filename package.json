@@ -9,9 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "heic2any": "^0.0.4",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "sharp": "^0.35.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

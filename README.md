@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Post maker - hawan
 
-## Getting Started
+Full-resolution post image maker. Everything runs in your browser — no upload until you choose to use the optional API.
 
-First, run the development server:
+## Templates
+
+| Template | Description |
+| --- | --- |
+| **original** (default) | Top banner — left, center, or right |
+| **v1** | Logo left + wordmark right |
+| **version2** | Logo left + wordmark right (v2) |
+| **logo-only** | Logo only — left, center, or right |
+
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+vercel --prod
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Works on Vercel with zero configuration.
 
-## Learn More
+## Network & performance
 
-To learn more about Next.js, take a look at the following resources:
+| Action | Server requests | Notes |
+| --- | --- | --- |
+| Open site | 1 page load + static assets (cached) | Templates load once |
+| Upload image | **0** | Stays on your device |
+| Drag / sliders | **0** | Canvas redraws locally |
+| Download / Copy | **0** | PNG created in browser |
+| `/api/render` | 1 per call | Optional automation only |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+CPU usage only spikes on your device during drag or export — the server stays idle for normal use.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Supported formats
 
-## Deploy on Vercel
+PNG, JPG, and **iPhone HEIC** photos.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Optional API
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`POST /api/render` — same result as the UI, for scripts. No auth required.
+
+```bash
+curl -X POST "http://localhost:3000/api/render?template=original&horizontal=center" \
+  -F "image=@./photo.heic" \
+  --output hawan-post.png
+```
