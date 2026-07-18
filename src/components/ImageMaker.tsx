@@ -102,7 +102,15 @@ function AlignPicker({
   );
 }
 
-export default function ImageMaker() {
+type ImageMakerProps = {
+  onHasImageChange?: (hasImage: boolean) => void;
+  onReplaceReady?: (openPicker: (() => void) | null) => void;
+};
+
+export default function ImageMaker({
+  onHasImageChange,
+  onReplaceReady,
+}: ImageMakerProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -126,6 +134,16 @@ export default function ImageMaker() {
   const activeTemplate = getTemplate(settings.templateId);
   const supportsHorizontal =
     activeTemplate.mode === "original" || activeTemplate.mode === "logo-only";
+
+  useEffect(() => {
+    onHasImageChange?.(hasImage);
+  }, [hasImage, onHasImageChange]);
+
+  useEffect(() => {
+    const openPicker = () => fileInputRef.current?.click();
+    onReplaceReady?.(hasImage ? openPicker : null);
+    return () => onReplaceReady?.(null);
+  }, [hasImage, onReplaceReady]);
 
   const updateSetting = useCallback(
     <K extends keyof CompositorSettings>(
@@ -373,20 +391,7 @@ export default function ImageMaker() {
   const verticalMax = activeTemplate.mode === "original" ? 70 : 88;
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="shrink-0 border-b border-zinc-900 px-5 py-6 sm:px-8">
-        <div className="mx-auto max-w-7xl">
-          <h1 className="text-3xl font-medium tracking-tight text-white sm:text-4xl">
-            Post maker - hawan
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-zinc-400 sm:text-base">
-            Upload, position, copy or download — full resolution, runs in your
-            browser. PNG, JPG, and iPhone HEIC supported.
-          </p>
-        </div>
-      </header>
-
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-5 py-6 sm:px-8 lg:flex-row lg:gap-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-5 py-6 sm:px-8 lg:flex-row lg:gap-8">
         <section className="flex min-h-[min(72vh,820px)] flex-1 flex-col gap-3">
           <div
             ref={previewRef}
@@ -519,15 +524,8 @@ export default function ImageMaker() {
               <div className="grid gap-3 pt-1">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-full border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-900"
-                >
-                  Replace image
-                </button>
-                <button
-                  type="button"
                   onClick={handleResetPosition}
-                  className="rounded-full px-5 py-3 text-sm text-zinc-400 transition hover:text-zinc-200"
+                  className="rounded-full border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-900"
                 >
                   Reset position
                 </button>
@@ -557,7 +555,6 @@ export default function ImageMaker() {
             </p>
           </div>
         </aside>
-      </main>
     </div>
   );
 }

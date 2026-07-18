@@ -1,5 +1,5 @@
-import ImageMaker from "@/components/ImageMaker";
+import AppShell from "@/components/AppShell";
 
 export default function Home() {
-  return <ImageMaker />;
+  return <AppShell />;
 }

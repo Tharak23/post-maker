@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Post maker - hawan",
-  description: "Private post image maker for full-resolution social posts.",
+  description:
+    "Full-resolution post and LinkedIn/X banner maker. Runs in your browser.",
 };
 
 export default function RootLayout({

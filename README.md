@@ -1,16 +1,32 @@
 # Post maker - hawan
 
-Full-resolution post image maker. Everything runs in your browser — no upload for normal use.
+Full-resolution **Post** and **Banner** maker. Runs in your browser — no upload for normal use.
 
-## Templates
+## Modes
 
-| Template | File | Description |
-| --- | --- | --- |
-| **original** (default) | `Original1.svg` | White top banner |
-| **original-black** | `Original-Black.svg` | Black top banner |
-| **v1** | `hydrilla-post.svg` | White logo + wordmark |
-| **v1-black** | `version2.svg` | Black logo + wordmark |
-| **logo-only** | `black.svg` | Logo only |
+| Mode | Use |
+| --- | --- |
+| **Post** | Square / portrait posts with branding overlays |
+| **Banner** | 4:1 LinkedIn / X covers — pan photo, centered text |
+
+### Post templates
+
+| Template | File |
+| --- | --- |
+| **original** | `Original1.svg` |
+| **original-black** | `Original-Black.svg` |
+| **v1** | `hydrilla-post.svg` |
+| **v1-black** | `version2.svg` |
+| **logo-only** | `black.svg` |
+
+### Banner text
+
+| Option | File |
+| --- | --- |
+| **Hydrilla** | `Hydrilla-banner.svg` |
+| **Hydrilla AI** | `Hydrilla-AI.svg` |
+
+Export: LinkedIn `1584×396`, High quality `3168×792`, or Max from photo.
 
 ## Run locally
 
