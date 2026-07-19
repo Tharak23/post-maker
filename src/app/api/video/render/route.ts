@@ -388,9 +388,9 @@ async function renderGif(
   outputPath: string,
   quality: VideoExportQuality,
 ) {
-  const fps = quality === "max" ? 20 : 12;
-  const scaleFilter =
-    quality === "max" ? "" : ",scale=min(1280\\,iw):-2:flags=lanczos";
+  const fps = quality === "max" ? 18 : 12;
+  const maxWidth = quality === "max" ? 1280 : 720;
+  const scaleFilter = `,scale='min(${maxWidth},iw)':-2:flags=lanczos`;
   const filter = `[0:v][1:v]overlay=0:0:format=auto,fps=${fps}${scaleFilter},split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`;
 
   await runFfmpeg([
@@ -402,6 +402,7 @@ async function renderGif(
     overlayPath,
     "-filter_complex",
     filter,
+    "-an",
     "-loop",
     "0",
     outputPath,

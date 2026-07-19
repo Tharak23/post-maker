@@ -34,7 +34,7 @@ Export: LinkedIn `1584×396`, High quality `3168×792`, or Max from photo.
 | Option | Use |
 | --- | --- |
 | **MP4** | Source frame size with DM Sans Bold text composited by ffmpeg |
-| **GIF** | ffmpeg palette-based GIF output |
+| **GIF** | ffmpeg palette-based GIF output, sized for reliable sharing |
 | **Medium quality** | Smaller output, high visual quality |
 | **Max quality** | Lossless H.264 MP4 stream; full-size GIF palette |
 
@@ -60,7 +60,7 @@ vercel --prod
 - Post output matches the source image pixels
 - Banner PNG export is lossless, with SVG overlays rasterized at final size
 - Video MP4 max quality uses source dimensions and lossless H.264 encoding
-- GIF export uses palette generation; GIF itself is limited to 256 colors
+- GIF export uses palette generation and GIF-safe dimensions; GIF itself is limited to 256 colors
 
 ## Optional API
 

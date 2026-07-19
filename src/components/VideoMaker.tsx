@@ -399,10 +399,20 @@ export default function VideoMaker({
         const error = (await response.json().catch(() => null)) as {
           error?: string;
         } | null;
-        throw new Error(error?.error ?? "Could not export video.");
+        const serverMessage =
+          error?.error && error.error !== "Could not export video."
+            ? error.error
+            : null;
+        throw new Error(
+          serverMessage ??
+            `Could not export ${format.toUpperCase()}. Try Medium quality for GIF.`,
+        );
       }
 
       const blob = await response.blob();
+      if (!blob.size) {
+        throw new Error(`Could not export ${format.toUpperCase()}.`);
+      }
       downloadBlob(blob, `hawan-video.${format}`);
       setBusyLabel("");
       setStatus("success");
