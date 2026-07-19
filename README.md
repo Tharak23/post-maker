@@ -1,6 +1,6 @@
 # Post maker - hawan
 
-Full-resolution **Post** and **Banner** maker. Runs in your browser — no upload for normal use.
+Full-resolution **Post**, **Banner**, and **Video** maker.
 
 ## Modes
 
@@ -8,6 +8,7 @@ Full-resolution **Post** and **Banner** maker. Runs in your browser — no uploa
 | --- | --- |
 | **Post** | Square / portrait posts with branding overlays |
 | **Banner** | 4:1 LinkedIn / X covers — pan photo, centered text |
+| **Video** | Upload video, type/move DM Sans Bold text, tune spacing, export MP4 or GIF |
 
 ### Post templates
 
@@ -28,6 +29,18 @@ Full-resolution **Post** and **Banner** maker. Runs in your browser — no uploa
 
 Export: LinkedIn `1584×396`, High quality `3168×792`, or Max from photo.
 
+### Video export
+
+| Option | Use |
+| --- | --- |
+| **MP4** | Source frame size with DM Sans Bold text composited by ffmpeg |
+| **GIF** | ffmpeg palette-based GIF output |
+| **Medium quality** | Smaller output, high visual quality |
+| **Max quality** | Lossless H.264 MP4 stream; full-size GIF palette |
+
+Video text controls include size, position, letter spacing, line spacing, color,
+and export quality.
+
 ## Run locally
 
 ```bash
@@ -44,9 +57,10 @@ vercel --prod
 
 ## Quality
 
-- Your photo is never resized — output matches input pixels
-- SVG overlays are rasterized at **exact on-image size** (not upscaled from a tiny bitmap)
-- Export is lossless PNG
+- Post output matches the source image pixels
+- Banner PNG export is lossless, with SVG overlays rasterized at final size
+- Video MP4 max quality uses source dimensions and lossless H.264 encoding
+- GIF export uses palette generation; GIF itself is limited to 256 colors
 
 ## Optional API
 

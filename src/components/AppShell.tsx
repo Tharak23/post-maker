@@ -3,8 +3,9 @@
 import { useCallback, useRef, useState } from "react";
 import BannerMaker from "@/components/BannerMaker";
 import ImageMaker from "@/components/ImageMaker";
+import VideoMaker from "@/components/VideoMaker";
 
-type Mode = "post" | "banner";
+type Mode = "post" | "banner" | "video";
 
 export default function AppShell() {
   const [mode, setMode] = useState<Mode>("post");
@@ -36,13 +37,15 @@ export default function AppShell() {
             <p className="mt-2 max-w-2xl text-sm text-zinc-400 sm:text-base">
               {mode === "post"
                 ? "Full-resolution posts — pick a template, position branding, copy or download."
-                : "Wide 4:1 banners for LinkedIn and X — pan your photo, centered Hydrilla text."}
+                : mode === "banner"
+                  ? "Wide 4:1 banners for LinkedIn and X — pan your photo, centered Hydrilla text."
+                  : "Upload a video, add movable DM Sans text, then export MP4 or GIF."}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <div
-              className="inline-flex min-w-[16rem] flex-1 rounded-full border border-zinc-800 bg-zinc-950 p-1 sm:max-w-md sm:flex-none"
+              className="inline-flex min-w-[18rem] flex-1 rounded-full border border-zinc-800 bg-zinc-950 p-1 sm:max-w-lg sm:flex-none"
               role="tablist"
               aria-label="Creator mode"
             >
@@ -72,6 +75,19 @@ export default function AppShell() {
               >
                 Banner
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "video"}
+                onClick={() => handleModeChange("video")}
+                className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition ${
+                  mode === "video"
+                    ? "bg-white text-black"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                Video
+              </button>
             </div>
 
             {hasImage ? (
@@ -80,7 +96,7 @@ export default function AppShell() {
                 onClick={() => replaceRef.current?.()}
                 className="rounded-full border border-zinc-600 px-4 py-2.5 text-sm text-zinc-200 transition hover:border-zinc-400 hover:bg-zinc-900 hover:text-white"
               >
-                Replace image
+                Replace {mode === "video" ? "video" : "image"}
               </button>
             ) : null}
           </div>
@@ -93,9 +109,14 @@ export default function AppShell() {
             onHasImageChange={handleHasImageChange}
             onReplaceReady={handleReplaceReady}
           />
-        ) : (
+        ) : mode === "banner" ? (
           <BannerMaker
             onHasImageChange={handleHasImageChange}
+            onReplaceReady={handleReplaceReady}
+          />
+        ) : (
+          <VideoMaker
+            onHasVideoChange={handleHasImageChange}
             onReplaceReady={handleReplaceReady}
           />
         )}
