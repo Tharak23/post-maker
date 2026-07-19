@@ -74,6 +74,85 @@ function escapeXml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
+function estimateTextWidth(text: string, fontSize: number, letterSpacingPx: number) {
+  const narrow = new Set(["i", "l", "I", ".", ",", ":", ";", "'", "|", "!"]);
+  const wide = new Set(["W", "M", "w", "m", "@", "#", "%", "&"]);
+  const baseWidth = Array.from(text).reduce((total, character) => {
+    if (character === " ") return total + fontSize * 0.34;
+    if (narrow.has(character)) return total + fontSize * 0.3;
+    if (wide.has(character)) return total + fontSize * 0.9;
+    return total + fontSize * 0.62;
+  }, 0);
+
+  return Math.max(
+    0,
+    baseWidth + Math.max(0, text.length - 1) * letterSpacingPx,
+  );
+}
+
+function wrapLineToWidth(
+  line: string,
+  maxWidth: number,
+  fontSize: number,
+  letterSpacingPx: number,
+) {
+  const words = line.split(/(\s+)/).filter(Boolean);
+  const wrapped: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current}${word}` : word;
+    if (
+      current &&
+      estimateTextWidth(next.trimEnd(), fontSize, letterSpacingPx) > maxWidth
+    ) {
+      wrapped.push(current.trimEnd());
+      current = word.trimStart();
+      continue;
+    }
+
+    if (
+      !current &&
+      estimateTextWidth(word, fontSize, letterSpacingPx) > maxWidth
+    ) {
+      let chunk = "";
+      for (const character of Array.from(word)) {
+        const nextChunk = `${chunk}${character}`;
+        if (
+          chunk &&
+          estimateTextWidth(nextChunk, fontSize, letterSpacingPx) > maxWidth
+        ) {
+          wrapped.push(chunk);
+          chunk = character;
+        } else {
+          chunk = nextChunk;
+        }
+      }
+      current = chunk;
+      continue;
+    }
+
+    current = next;
+  }
+
+  if (current.trimEnd()) wrapped.push(current.trimEnd());
+  return wrapped.length ? wrapped : [" "];
+}
+
+function wrapTextToFrame(
+  text: string,
+  maxWidth: number,
+  fontSize: number,
+  letterSpacingPx: number,
+) {
+  return (text.trim() || " ")
+    .split(/\r?\n/)
+    .flatMap((line) =>
+      wrapLineToWidth(line || " ", maxWidth, fontSize, letterSpacingPx),
+    )
+    .slice(0, 8);
+}
+
 async function createTextOverlay({
   outputPath,
   text,
@@ -104,14 +183,42 @@ async function createTextOverlay({
   );
   const letterSpacingPx = fontSize * (clamp(letterSpacing, -8, 12) / 100);
   const lineHeight = Math.round(fontSize * (clamp(lineSpacing, 80, 150) / 100));
-  const lines = (text.trim() || " ")
-    .split(/\r?\n/)
-    .slice(0, 8)
-    .map((line) => escapeXml(line || " "));
-  const centerX = Math.round(width * xRatio);
-  const centerY = Math.round(height * yRatio);
+  const edgePadding = Math.max(8, Math.round(Math.min(width, height) * 0.018));
+  const maxTextWidth = Math.max(1, width - edgePadding * 2);
+  const rawLines = wrapTextToFrame(
+    text,
+    maxTextWidth,
+    fontSize,
+    letterSpacingPx,
+  );
+  const measuredWidth = Math.min(
+    maxTextWidth,
+    Math.max(
+      1,
+      ...rawLines.map((line) =>
+        estimateTextWidth(line, fontSize, letterSpacingPx),
+      ),
+    ),
+  );
+  const measuredHeight = Math.max(fontSize, rawLines.length * lineHeight);
+  const centerX = Math.round(
+    clamp(
+      width * xRatio,
+      edgePadding + measuredWidth / 2,
+      width - edgePadding - measuredWidth / 2,
+    ),
+  );
+  const centerY = Math.round(
+    clamp(
+      height * yRatio,
+      edgePadding + measuredHeight / 2,
+      height - edgePadding - measuredHeight / 2,
+    ),
+  );
+  const lines = rawLines.map((line) => escapeXml(line || " "));
   const firstDy = -((lines.length - 1) * lineHeight) / 2;
-  const strokeColor = color === "white" ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.55)";
+  const strokeColor =
+    color === "white" ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.55)";
   const strokeWidth = Math.max(1, Math.round(Math.min(width, height) * 0.0025));
   const fontData = (await readFile(FONT_PATH)).toString("base64");
   const tspans = lines

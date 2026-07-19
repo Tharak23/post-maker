@@ -104,6 +104,7 @@ export default function VideoMaker({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
   const dragFrameRef = useRef<number | null>(null);
   const pendingPointerRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -125,6 +126,10 @@ export default function VideoMaker({
   const [previewBox, setPreviewBox] = useState({
     left: 0,
     top: 0,
+    width: 1,
+    height: 1,
+  });
+  const [previewTextBox, setPreviewTextBox] = useState({
     width: 1,
     height: 1,
   });
@@ -163,6 +168,36 @@ export default function VideoMaker({
     [],
   );
 
+  const clampPreviewPosition = useCallback(
+    (x: number, y: number) => {
+      const edgePadding = 8;
+      const halfWidth = previewTextBox.width / 2 + edgePadding;
+      const halfHeight = previewTextBox.height / 2 + edgePadding;
+      const minX = Math.min(50, (halfWidth / previewBox.width) * 100);
+      const maxX = Math.max(50, 100 - minX);
+      const minY = Math.min(50, (halfHeight / previewBox.height) * 100);
+      const maxY = Math.max(50, 100 - minY);
+
+      return {
+        x: Math.round(Math.min(maxX, Math.max(minX, x))),
+        y: Math.round(Math.min(maxY, Math.max(minY, y))),
+      };
+    },
+    [previewBox.height, previewBox.width, previewTextBox.height, previewTextBox.width],
+  );
+
+  const updatePosition = useCallback(
+    (x: number, y: number) => {
+      const next = clampPreviewPosition(x, y);
+      setSettings((current) => ({
+        ...current,
+        x: next.x,
+        y: next.y,
+      }));
+    },
+    [clampPreviewPosition],
+  );
+
   const updatePreviewMetrics = useCallback(() => {
     const stage = stageRef.current;
     const video = videoRef.current;
@@ -185,22 +220,67 @@ export default function VideoMaker({
     );
   }, [settings.textSize]);
 
+  const updateTextMetrics = useCallback(() => {
+    const text = textRef.current;
+    if (!text) return;
+
+    const rect = text.getBoundingClientRect();
+    setPreviewTextBox({
+      width: rect.width,
+      height: rect.height,
+    });
+  }, []);
+
   useEffect(() => {
     if (!hasVideo) return;
 
     updatePreviewMetrics();
+    updateTextMetrics();
     const stage = stageRef.current;
     const video = videoRef.current;
-    if (!stage || !video || typeof ResizeObserver === "undefined") {
+    const text = textRef.current;
+    if (!stage || !video || !text || typeof ResizeObserver === "undefined") {
       window.addEventListener("resize", updatePreviewMetrics);
-      return () => window.removeEventListener("resize", updatePreviewMetrics);
+      window.addEventListener("resize", updateTextMetrics);
+      return () => {
+        window.removeEventListener("resize", updatePreviewMetrics);
+        window.removeEventListener("resize", updateTextMetrics);
+      };
     }
 
-    const observer = new ResizeObserver(updatePreviewMetrics);
+    const observer = new ResizeObserver(() => {
+      updatePreviewMetrics();
+      updateTextMetrics();
+    });
     observer.observe(stage);
     observer.observe(video);
+    observer.observe(text);
     return () => observer.disconnect();
-  }, [hasVideo, updatePreviewMetrics]);
+  }, [hasVideo, updatePreviewMetrics, updateTextMetrics]);
+
+  useEffect(() => {
+    if (!hasVideo) return;
+
+    updateTextMetrics();
+    const frame = requestAnimationFrame(() => {
+      const next = clampPreviewPosition(settings.x, settings.y);
+      if (next.x !== settings.x || next.y !== settings.y) {
+        setSettings((current) => ({ ...current, ...next }));
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [
+    clampPreviewPosition,
+    hasVideo,
+    overlayText,
+    previewFontSize,
+    settings.letterSpacing,
+    settings.lineSpacing,
+    settings.x,
+    settings.y,
+    updateTextMetrics,
+  ]);
 
   function processFile(file: File) {
     if (!isAcceptedVideoFile(file)) {
@@ -245,12 +325,7 @@ export default function VideoMaker({
     const rect = video.getBoundingClientRect();
     const x = ((clientX - rect.left) / rect.width) * 100;
     const y = ((clientY - rect.top) / rect.height) * 100;
-
-    setSettings((current) => ({
-      ...current,
-      x: Math.round(Math.min(100, Math.max(0, x))),
-      y: Math.round(Math.min(100, Math.max(0, y))),
-    }));
+    updatePosition(x, y);
   }
 
   function schedulePointerUpdate(clientX: number, clientY: number) {
@@ -384,23 +459,35 @@ export default function VideoMaker({
                 className="max-h-full max-w-full rounded-lg object-contain"
               />
               <div
-                className="font-dm-sans pointer-events-none absolute whitespace-pre text-center leading-none"
+                className="pointer-events-none absolute overflow-hidden rounded-lg"
                 style={{
-                  left: `${previewBox.left + previewBox.width * (settings.x / 100)}px`,
-                  top: `${previewBox.top + previewBox.height * (settings.y / 100)}px`,
-                  transform: "translate(-50%, -50%)",
-                  fontSize: `${previewFontSize}px`,
-                  fontWeight: 700,
-                  letterSpacing: `${previewFontSize * (settings.letterSpacing / 100)}px`,
-                  lineHeight: `${settings.lineSpacing}%`,
-                  color: settings.color,
-                  textShadow:
-                    settings.color === "white"
-                      ? "0 2px 10px rgba(0,0,0,.75)"
-                      : "0 2px 10px rgba(255,255,255,.55)",
+                  left: `${previewBox.left}px`,
+                  top: `${previewBox.top}px`,
+                  width: `${previewBox.width}px`,
+                  height: `${previewBox.height}px`,
                 }}
               >
-                {overlayText}
+                <div
+                  ref={textRef}
+                  className="font-dm-sans absolute whitespace-pre-wrap break-words text-center leading-none"
+                  style={{
+                    left: `${settings.x}%`,
+                    top: `${settings.y}%`,
+                    maxWidth: `${Math.max(1, previewBox.width - 16)}px`,
+                    transform: "translate(-50%, -50%)",
+                    fontSize: `${previewFontSize}px`,
+                    fontWeight: 700,
+                    letterSpacing: `${previewFontSize * (settings.letterSpacing / 100)}px`,
+                    lineHeight: `${settings.lineSpacing}%`,
+                    color: settings.color,
+                    textShadow:
+                      settings.color === "white"
+                        ? "0 2px 10px rgba(0,0,0,.75)"
+                        : "0 2px 10px rgba(255,255,255,.55)",
+                  }}
+                >
+                  {overlayText}
+                </div>
               </div>
             </div>
           ) : (
@@ -520,7 +607,7 @@ export default function VideoMaker({
               min={0}
               max={100}
               value={settings.x}
-              onChange={(value) => updateSetting("x", value)}
+              onChange={(value) => updatePosition(value, settings.y)}
             />
 
             <Slider
@@ -528,7 +615,7 @@ export default function VideoMaker({
               min={0}
               max={100}
               value={settings.y}
-              onChange={(value) => updateSetting("y", value)}
+              onChange={(value) => updatePosition(settings.x, value)}
             />
 
             <div className="grid gap-2">
