@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadBlob } from "@/lib/compositor-client";
+import { exportVideoInBrowser } from "@/lib/video-client";
 
 type Status = "idle" | "error" | "success";
 type VideoExportFormat = "mp4" | "gif";
@@ -17,6 +18,10 @@ type VideoSettings = {
   lineSpacing: number;
   color: TextColor;
   quality: VideoExportQuality;
+  startTime: number;
+  clipLength: number;
+  gifFps: number;
+  gifWidth: number;
 };
 
 type VideoMakerProps = {
@@ -36,6 +41,10 @@ const DEFAULT_VIDEO_SETTINGS: VideoSettings = {
   lineSpacing: 96,
   color: "white",
   quality: "max",
+  startTime: 0,
+  clipLength: 3,
+  gifFps: 12,
+  gifWidth: 720,
 };
 
 function Slider({
@@ -95,6 +104,26 @@ function formatDuration(seconds: number) {
     .toString()
     .padStart(2, "0");
   return `${minutes}:${rest}`;
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
 }
 
 export default function VideoMaker({
@@ -302,6 +331,11 @@ export default function VideoMaker({
       return nextUrl;
     });
     setVideoInfo(null);
+    setSettings((current) => ({
+      ...current,
+      startTime: DEFAULT_VIDEO_SETTINGS.startTime,
+      clipLength: DEFAULT_VIDEO_SETTINGS.clipLength,
+    }));
     setStatus("idle");
     setMessage("");
   }
@@ -360,11 +394,22 @@ export default function VideoMaker({
   function handleLoadedMetadata() {
     const video = videoRef.current;
     if (!video) return;
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
     setVideoInfo({
       width: video.videoWidth,
       height: video.videoHeight,
-      duration: video.duration,
+      duration,
     });
+    if (duration > 0) {
+      setSettings((current) => ({
+        ...current,
+        startTime: Math.min(current.startTime, Math.max(0, Math.floor(duration))),
+        clipLength: Math.min(
+          current.clipLength || DEFAULT_VIDEO_SETTINGS.clipLength,
+          Math.max(1, Math.ceil(duration)),
+        ),
+      }));
+    }
     updatePreviewMetrics();
   }
 
@@ -373,10 +418,41 @@ export default function VideoMaker({
 
     try {
       setBusyLabel(
-        `Exporting ${format.toUpperCase()} (${settings.quality} quality)...`,
+        `Exporting ${format.toUpperCase()} in browser (${settings.quality} quality)...`,
       );
       setStatus("idle");
       setMessage("");
+
+      const width = videoInfo?.width || videoRef.current?.videoWidth;
+      const height = videoInfo?.height || videoRef.current?.videoHeight;
+
+      if (!width || !height) {
+        throw new Error("Wait for the video preview to load, then export.");
+      }
+
+      try {
+        const browserBlob = await withTimeout(
+          exportVideoInBrowser({
+            file: videoFile,
+            width,
+            height,
+            format,
+            settings,
+            onProgress: setBusyLabel,
+          }),
+          format === "gif" ? 90_000 : 120_000,
+          `Browser ${format.toUpperCase()} export took too long.`,
+        );
+        downloadBlob(browserBlob, `hawan-video.${format}`);
+        setBusyLabel("");
+        setStatus("success");
+        setMessage(`Downloaded ${format.toUpperCase()}.`);
+        window.setTimeout(() => setMessage(""), 2500);
+        return;
+      } catch (browserError) {
+        console.warn("Browser export failed, trying server fallback:", browserError);
+        setBusyLabel(`Browser export failed. Trying ${format.toUpperCase()} fallback...`);
+      }
 
       const formData = new FormData();
       formData.append("video", videoFile);
@@ -389,6 +465,10 @@ export default function VideoMaker({
       formData.append("letterSpacing", String(settings.letterSpacing));
       formData.append("lineSpacing", String(settings.lineSpacing));
       formData.append("color", settings.color);
+      formData.append("startTime", String(settings.startTime));
+      formData.append("clipLength", String(settings.clipLength));
+      formData.append("gifFps", String(settings.gifFps));
+      formData.append("gifWidth", String(settings.gifWidth));
 
       const response = await fetch("/api/video/render", {
         method: "POST",
@@ -435,6 +515,8 @@ export default function VideoMaker({
       textSize: DEFAULT_VIDEO_SETTINGS.textSize,
       letterSpacing: DEFAULT_VIDEO_SETTINGS.letterSpacing,
       lineSpacing: DEFAULT_VIDEO_SETTINGS.lineSpacing,
+      startTime: DEFAULT_VIDEO_SETTINGS.startTime,
+      clipLength: DEFAULT_VIDEO_SETTINGS.clipLength,
     }));
     setStatus("idle");
     setMessage("Text reset to center.");
@@ -612,6 +694,54 @@ export default function VideoMaker({
             />
 
             <Slider
+              label="Trim start"
+              hint="Seconds from the beginning"
+              min={0}
+              max={Math.max(0, Math.floor(videoInfo?.duration ?? 0))}
+              value={Math.min(
+                settings.startTime,
+                Math.max(0, Math.floor(videoInfo?.duration ?? 0)),
+              )}
+              onChange={(value) => updateSetting("startTime", value)}
+            />
+
+            <Slider
+              label="Clip length"
+              hint="Short clips make cleaner GIF downloads"
+              min={1}
+              max={Math.max(1, Math.min(30, Math.ceil(videoInfo?.duration ?? 3)))}
+              value={Math.min(
+                settings.clipLength,
+                Math.max(1, Math.min(30, Math.ceil(videoInfo?.duration ?? 3))),
+              )}
+              onChange={(value) => updateSetting("clipLength", value)}
+            />
+
+            <Slider
+              label="GIF FPS"
+              hint="Lower is smaller; higher is smoother"
+              min={8}
+              max={settings.quality === "max" ? 18 : 12}
+              value={Math.min(
+                settings.gifFps,
+                settings.quality === "max" ? 18 : 12,
+              )}
+              onChange={(value) => updateSetting("gifFps", value)}
+            />
+
+            <Slider
+              label="GIF width"
+              hint="Medium caps at 720; max caps at 1280"
+              min={320}
+              max={settings.quality === "max" ? 1280 : 720}
+              value={Math.min(
+                settings.gifWidth,
+                settings.quality === "max" ? 1280 : 720,
+              )}
+              onChange={(value) => updateSetting("gifWidth", value)}
+            />
+
+            <Slider
               label="Horizontal position"
               hint="Or drag text on the preview"
               min={0}
@@ -664,12 +794,12 @@ export default function VideoMaker({
                   {
                     id: "medium" as const,
                     label: "Medium quality",
-                    detail: "Smaller MP4/GIF, high visual quality",
+                    detail: "GIF up to 720px wide, faster download",
                   },
                   {
                     id: "max" as const,
                     label: "Max quality",
-                    detail: "Lossless MP4 stream, full-size GIF palette",
+                    detail: "Lossless MP4, GIF up to 1280px wide",
                   },
                 ].map((option) => (
                   <button
@@ -720,8 +850,8 @@ export default function VideoMaker({
         <div className="mt-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-xs leading-6 text-zinc-500">
           <p className="text-sm font-medium text-zinc-300">Video mode</p>
           <p className="mt-1">
-            MP4 export uses the source dimensions with a DM Sans text pass. GIF
-            export uses ffmpeg palette generation for cleaner color.
+            MP4 keeps source dimensions. GIF uses browser FFmpeg first, palette
+            colors, trim controls, and reliable share-size output.
           </p>
         </div>
       </aside>

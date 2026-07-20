@@ -313,10 +313,17 @@ async function renderMp4(
   overlayPath: string,
   outputPath: string,
   quality: VideoExportQuality,
+  startTime: number,
+  clipLength: number,
 ) {
+  const trimArgs =
+    clipLength > 0
+      ? ["-ss", String(Math.max(0, startTime)), "-t", String(clipLength)]
+      : ["-ss", String(Math.max(0, startTime))];
   const baseArgs = [
     "-hide_banner",
     "-y",
+    ...trimArgs,
     "-i",
     inputPath,
     "-i",
@@ -387,15 +394,24 @@ async function renderGif(
   overlayPath: string,
   outputPath: string,
   quality: VideoExportQuality,
+  startTime: number,
+  clipLength: number,
+  gifFps: number,
+  gifWidth: number,
 ) {
-  const fps = quality === "max" ? 18 : 12;
-  const maxWidth = quality === "max" ? 1280 : 720;
+  const fps = clamp(gifFps, 8, quality === "max" ? 18 : 12);
+  const maxWidth = clamp(gifWidth, 320, quality === "max" ? 1280 : 720);
   const scaleFilter = `,scale='min(${maxWidth},iw)':-2:flags=lanczos`;
   const filter = `[0:v][1:v]overlay=0:0:format=auto,fps=${fps}${scaleFilter},split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`;
+  const trimArgs =
+    clipLength > 0
+      ? ["-ss", String(Math.max(0, startTime)), "-t", String(clipLength)]
+      : ["-ss", String(Math.max(0, startTime))];
 
   await runFfmpeg([
     "-hide_banner",
     "-y",
+    ...trimArgs,
     "-i",
     inputPath,
     "-i",
@@ -457,6 +473,10 @@ export async function POST(request: Request) {
       80,
       150,
     );
+    const startTime = Math.max(0, clampNumber(formData.get("startTime"), 0));
+    const clipLength = Math.max(0, clampNumber(formData.get("clipLength"), 0));
+    const gifFps = clamp(clampNumber(formData.get("gifFps"), 12), 8, 18);
+    const gifWidth = clamp(clampNumber(formData.get("gifWidth"), 720), 320, 1280);
 
     await mkdir(workspace, { recursive: true });
     const inputPath = path.join(workspace, `input.${getVideoExtension(video)}`);
@@ -480,9 +500,25 @@ export async function POST(request: Request) {
     });
 
     if (format === "gif") {
-      await renderGif(inputPath, overlayPath, outputPath, quality);
+      await renderGif(
+        inputPath,
+        overlayPath,
+        outputPath,
+        quality,
+        startTime,
+        clipLength,
+        gifFps,
+        gifWidth,
+      );
     } else {
-      await renderMp4(inputPath, overlayPath, outputPath, quality);
+      await renderMp4(
+        inputPath,
+        overlayPath,
+        outputPath,
+        quality,
+        startTime,
+        clipLength,
+      );
     }
 
     const output = await readFile(outputPath);
@@ -526,6 +562,10 @@ export async function GET() {
       textSize: "optional 6-30 percent of min(video width, video height)",
       letterSpacing: "optional -8 to 12 percent of font size",
       lineSpacing: "optional 80-150 percent of font size",
+      startTime: "optional trim start time in seconds",
+      clipLength: "optional trim duration in seconds; 0 means until the end",
+      gifFps: "optional GIF frame rate, 8-18",
+      gifWidth: "optional GIF max width, 320-1280",
       color: "white | black",
     },
   });

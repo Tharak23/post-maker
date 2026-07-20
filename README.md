@@ -36,10 +36,11 @@ Export: LinkedIn `1584×396`, High quality `3168×792`, or Max from photo.
 | **MP4** | Source frame size with DM Sans Bold text composited by ffmpeg |
 | **GIF** | ffmpeg palette-based GIF output, sized for reliable sharing |
 | **Medium quality** | Smaller output, high visual quality |
-| **Max quality** | Lossless H.264 MP4 stream; full-size GIF palette |
+| **Max quality** | Lossless H.264 MP4 stream; GIF up to 1280px wide |
 
-Video text controls include size, position, letter spacing, line spacing, color,
-and export quality.
+Video controls include size, position, letter spacing, line spacing, color,
+trim start, clip length, GIF FPS, GIF width, and export quality. Browser export
+uses FFmpeg.wasm first; the Node/ffmpeg API remains as a fallback.
 
 ## Run locally
 
