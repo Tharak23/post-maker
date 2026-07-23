@@ -1,6 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Copy, Download, Loader2 } from "lucide-react";
+import {
+  OptionCard,
+  SettingSlider,
+  StatusMessage,
+} from "@/components/maker-controls";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Progress,
+  ProgressLabel,
+  ProgressValue,
+} from "@/components/ui/progress";
 import {
   ACCEPTED_FILE_EXTENSIONS,
   DEFAULT_SETTINGS,
@@ -25,46 +39,9 @@ import {
   loadImageFromFile,
   prepareImageFile,
 } from "@/lib/image-file";
+import { cn } from "@/lib/utils";
 
 type Status = "idle" | "error" | "success";
-
-function Slider({
-  label,
-  hint,
-  min,
-  max,
-  value,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  min: number;
-  max: number;
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="grid gap-2">
-      <div className="flex items-start justify-between gap-3 text-sm">
-        <div>
-          <span className="text-zinc-200">{label}</span>
-          {hint ? (
-            <span className="mt-0.5 block text-xs text-zinc-500">{hint}</span>
-          ) : null}
-        </div>
-        <span className="shrink-0 tabular-nums text-zinc-400">{value}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="h-2 w-full cursor-pointer appearance-none rounded-full bg-zinc-800 accent-white"
-      />
-    </label>
-  );
-}
 
 function AlignPicker({
   value,
@@ -73,28 +50,32 @@ function AlignPicker({
   value: HorizontalAlign;
   onChange: (value: HorizontalAlign) => void;
 }) {
-  const options: { id: HorizontalAlign; label: string }[] = [
-    { id: "left", label: "Left" },
-    { id: "center", label: "Center" },
-    { id: "right", label: "Right" },
+  const options: { id: HorizontalAlign; label: string; detail: string }[] = [
+    { id: "left", label: "Left", detail: "Brand sits on the left" },
+    { id: "center", label: "Center", detail: "Balanced middle" },
+    { id: "right", label: "Right", detail: "Brand sits on the right" },
   ];
 
   return (
     <div className="grid gap-2">
-      <p className="text-sm text-zinc-200">Horizontal position</p>
+      <Label className="text-zinc-200">Horizontal position</Label>
       <div className="grid grid-cols-3 gap-2">
         {options.map((option) => (
           <button
             key={option.id}
             type="button"
             onClick={() => onChange(option.id)}
-            className={`rounded-lg border px-3 py-2 text-sm transition ${
+            className={cn(
+              "rounded-xl border px-3 py-2.5 text-left transition",
               value === option.id
-                ? "border-white bg-white text-black"
-                : "border-zinc-700 text-zinc-300 hover:border-zinc-500"
-            }`}
+                ? "border-white bg-zinc-900 text-white"
+                : "border-zinc-800 text-zinc-300 hover:border-zinc-600",
+            )}
           >
-            {option.label}
+            <span className="block text-sm font-medium">{option.label}</span>
+            <span className="mt-0.5 block text-[11px] leading-4 text-zinc-500">
+              {option.detail}
+            </span>
           </button>
         ))}
       </div>
@@ -128,9 +109,11 @@ export default function ImageMaker({
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   const [busyLabel, setBusyLabel] = useState("");
+  const [busyProgress, setBusyProgress] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const hasImage = Boolean(background);
+  const isBusy = Boolean(busyLabel);
   const activeTemplate = getTemplate(settings.templateId);
   const supportsHorizontal =
     activeTemplate.mode === "original" || activeTemplate.mode === "logo-only";
@@ -206,14 +189,16 @@ export default function ImageMaker({
     setBusyLabel(
       file.name.toLowerCase().endsWith(".heic") ||
         file.name.toLowerCase().endsWith(".heif")
-        ? "Converting iPhone photo"
-        : "Reading image",
+        ? "Converting iPhone photo…"
+        : "Reading image…",
     );
+    setBusyProgress(18);
     setStatus("idle");
     setMessage("");
 
     try {
       const prepared = await prepareImageFile(file);
+      setBusyProgress(55);
       const image = await loadImageFromFile(prepared);
 
       if (
@@ -221,6 +206,7 @@ export default function ImageMaker({
         image.naturalHeight > MAX_CANVAS_EDGE
       ) {
         setBusyLabel("");
+        setBusyProgress(null);
         setStatus("error");
         setMessage(
           `Image is too large (${image.naturalWidth}×${image.naturalHeight}). Max edge is ${MAX_CANVAS_EDGE}px.`,
@@ -228,6 +214,7 @@ export default function ImageMaker({
         return;
       }
 
+      setBusyProgress(90);
       setBackground(image);
       clearPatchCache();
       setImageSize({
@@ -235,11 +222,12 @@ export default function ImageMaker({
         height: image.naturalHeight,
       });
       setBusyLabel("");
+      setBusyProgress(null);
       setStatus("idle");
       setMessage("");
-      window.setTimeout(() => setBusyLabel(""), 220);
     } catch {
       setBusyLabel("");
+      setBusyProgress(null);
       setStatus("error");
       setMessage("Could not read that image. Try a different file.");
     }
@@ -331,12 +319,18 @@ export default function ImageMaker({
     if (!canvasRef.current) return;
 
     try {
+      setBusyLabel("Downloading PNG…");
+      setBusyProgress(70);
       const blob = await canvasToBlob(canvasRef.current);
       downloadBlob(blob, "hawan-post.png");
+      setBusyLabel("");
+      setBusyProgress(null);
       setStatus("success");
       setMessage("Downloaded.");
       window.setTimeout(() => setMessage(""), 2000);
     } catch {
+      setBusyLabel("");
+      setBusyProgress(null);
       setStatus("error");
       setMessage("Could not export image.");
     }
@@ -346,9 +340,13 @@ export default function ImageMaker({
     if (!canvasRef.current) return;
 
     try {
+      setBusyLabel("Copying…");
+      setBusyProgress(60);
       const blob = await canvasToBlob(canvasRef.current);
 
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+        setBusyLabel("");
+        setBusyProgress(null);
         setStatus("error");
         setMessage("Copy is not supported here. Use Download instead.");
         return;
@@ -357,10 +355,14 @@ export default function ImageMaker({
       await navigator.clipboard.write([
         new ClipboardItem({ "image/png": blob }),
       ]);
+      setBusyLabel("");
+      setBusyProgress(null);
       setStatus("success");
       setMessage("Copied to clipboard.");
       window.setTimeout(() => setMessage(""), 2000);
     } catch {
+      setBusyLabel("");
+      setBusyProgress(null);
       setStatus("error");
       setMessage("Could not copy. Use Download instead.");
     }
@@ -392,169 +394,188 @@ export default function ImageMaker({
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-5 py-6 sm:px-8 lg:flex-row lg:gap-8">
-        <section className="flex min-h-[min(72vh,820px)] flex-1 flex-col gap-3">
-          <div
-            ref={previewRef}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={handleDrop}
-            className={`relative flex flex-1 items-center justify-center overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-6 ${
-              hasImage ? "cursor-grab active:cursor-grabbing" : ""
-            }`}
-          >
-            {hasImage ? (
-              <canvas
-                ref={canvasRef}
-                className="max-h-full max-w-full object-contain"
-                style={{ width: "auto", height: "auto" }}
-              />
-            ) : (
-              <div className="flex h-full min-h-[min(56vh,640px)] w-full flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/30 px-6 text-center">
-                <p className="text-lg text-zinc-100">Drag and drop an image</p>
-                <p className="max-w-sm text-sm leading-6 text-zinc-500">
-                  PNG, JPG, or iPhone HEIC · up to 25 MB · full resolution kept
-                </p>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-full bg-white px-6 py-2.5 text-sm font-medium text-black transition hover:bg-zinc-200"
-                >
-                  Choose file
-                </button>
-              </div>
-            )}
-          </div>
-
+      <section className="flex min-h-[min(72vh,820px)] flex-1 flex-col gap-3">
+        <div
+          ref={previewRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleDrop}
+          className={`relative flex flex-1 items-center justify-center overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-6 ${
+            hasImage ? "cursor-grab active:cursor-grabbing" : ""
+          }`}
+        >
           {hasImage ? (
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-center text-xs text-zinc-500 sm:text-left">
-                {imageSize
-                  ? `${imageSize.width} × ${imageSize.height} px · full resolution`
-                  : "Full resolution"}
+            <canvas
+              ref={canvasRef}
+              className="max-h-full max-w-full object-contain"
+              style={{ width: "auto", height: "auto" }}
+            />
+          ) : (
+            <div className="flex h-full min-h-[min(56vh,640px)] w-full flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/30 px-6 text-center">
+              <p className="text-lg text-zinc-100">Drag and drop an image</p>
+              <p className="max-w-sm text-sm leading-6 text-zinc-500">
+                PNG, JPG, or iPhone HEIC · up to 25 MB · full resolution kept
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="rounded-full border border-zinc-700 px-4 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-900"
-                >
-                  Copy image
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-zinc-200"
-                >
-                  Download
-                </button>
+              <Button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-full px-6"
+              >
+                Choose file
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {hasImage ? (
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-center text-xs text-zinc-500 sm:text-left">
+              {imageSize
+                ? `${imageSize.width} × ${imageSize.height} px · full resolution`
+                : "Full resolution"}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCopy}
+                disabled={isBusy}
+                className="border-zinc-700"
+              >
+                {isBusy ? <Loader2 className="animate-spin" /> : <Copy />}
+                Copy image
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDownload}
+                disabled={isBusy}
+              >
+                {isBusy ? <Loader2 className="animate-spin" /> : <Download />}
+                Download
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {isBusy || message ? (
+          <Card className="border-zinc-800 bg-zinc-950 ring-zinc-800">
+            <CardContent className="grid gap-3 pt-(--card-spacing)">
+              {isBusy ? (
+                <Progress value={busyProgress}>
+                  <div className="flex w-full items-center gap-3">
+                    <Loader2 className="size-4 shrink-0 animate-spin text-zinc-300" />
+                    <ProgressLabel className="text-zinc-200">
+                      {busyLabel}
+                    </ProgressLabel>
+                    <ProgressValue className="text-zinc-400">
+                      {(formatted) =>
+                        busyProgress == null
+                          ? "…"
+                          : (formatted ?? `${Math.round(busyProgress)}%`)
+                      }
+                    </ProgressValue>
+                  </div>
+                </Progress>
+              ) : (
+                <StatusMessage status={status} message={message} />
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
+      </section>
+
+      <aside className="flex w-full shrink-0 flex-col gap-5 lg:w-[24rem]">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={`${ACCEPTED_FILE_EXTENSIONS},image/png,image/jpeg,image/heic,image/heif`}
+          className="hidden"
+          onChange={handleUpload}
+        />
+
+        {!hasImage ? (
+          <Button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-full lg:hidden"
+          >
+            Choose file
+          </Button>
+        ) : (
+          <>
+            <div className="grid gap-2">
+              <div>
+                <Label className="text-zinc-200">Template</Label>
+                <p className="mt-0.5 text-xs leading-5 text-zinc-500">
+                  Full-resolution PNG export. No quality loss.
+                </p>
+              </div>
+              <div className="grid gap-2">
+                {TEMPLATE_ORDER.map((id) => (
+                  <OptionCard
+                    key={id}
+                    selected={settings.templateId === id}
+                    title={TEMPLATES[id].label}
+                    detail={TEMPLATES[id].description}
+                    onClick={() => selectTemplate(id)}
+                  />
+                ))}
               </div>
             </div>
-          ) : null}
-        </section>
 
-        <aside className="flex w-full shrink-0 flex-col gap-5 lg:w-[22rem]">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={`${ACCEPTED_FILE_EXTENSIONS},image/png,image/jpeg,image/heic,image/heif`}
-            className="hidden"
-            onChange={handleUpload}
-          />
+            <SettingSlider
+              label={sizeLabel}
+              min={sizeMin}
+              max={sizeMax}
+              value={settings.logoSize}
+              onChange={(value) => updateSetting("logoSize", value)}
+            />
 
-          {!hasImage ? (
-            <button
+            {supportsHorizontal ? (
+              <AlignPicker
+                value={settings.horizontal}
+                onChange={(value) => updateSetting("horizontal", value)}
+              />
+            ) : null}
+
+            <SettingSlider
+              label={verticalLabel}
+              hint={verticalHint}
+              min={verticalMin}
+              max={verticalMax}
+              value={settings.vertical}
+              display={`${settings.vertical}%`}
+              onChange={(value) => updateSetting("vertical", value)}
+            />
+
+            <Button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-full bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-zinc-200 lg:hidden"
+              variant="outline"
+              onClick={handleResetPosition}
+              className="border-zinc-700"
             >
-              Choose file
-            </button>
-          ) : (
-            <>
-              <div className="grid gap-2">
-                <p className="text-sm font-medium text-zinc-200">Template</p>
-                <div className="grid gap-2">
-                  {TEMPLATE_ORDER.map((id) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => selectTemplate(id)}
-                      className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-                        settings.templateId === id
-                          ? "border-white bg-zinc-900 text-white"
-                          : "border-zinc-800 text-zinc-300 hover:border-zinc-600 hover:bg-zinc-900/50"
-                      }`}
-                    >
-                      <span className="font-medium">{TEMPLATES[id].label}</span>
-                      <span className="mt-1 block text-xs leading-5 text-zinc-500">
-                        {TEMPLATES[id].description}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              Reset position
+            </Button>
+          </>
+        )}
 
-              <Slider
-                label={sizeLabel}
-                min={sizeMin}
-                max={sizeMax}
-                value={settings.logoSize}
-                onChange={(value) => updateSetting("logoSize", value)}
-              />
-
-              {supportsHorizontal ? (
-                <AlignPicker
-                  value={settings.horizontal}
-                  onChange={(value) => updateSetting("horizontal", value)}
-                />
-              ) : null}
-
-              <Slider
-                label={verticalLabel}
-                hint={verticalHint}
-                min={verticalMin}
-                max={verticalMax}
-                value={settings.vertical}
-                onChange={(value) => updateSetting("vertical", value)}
-              />
-
-              <div className="grid gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={handleResetPosition}
-                  className="rounded-full border border-zinc-700 px-5 py-3 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-900"
-                >
-                  Reset position
-                </button>
-              </div>
-            </>
-          )}
-
-          {(busyLabel || message) && (
-            <p
-              className={`min-h-[2.25rem] text-sm ${
-                status === "error"
-                  ? "text-red-300"
-                  : status === "success"
-                    ? "text-emerald-300"
-                    : "text-zinc-400"
-              }`}
-            >
-              {busyLabel || message}
-            </p>
-          )}
-
-          <div className="mt-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-xs leading-6 text-zinc-500">
-            <p className="text-sm font-medium text-zinc-300">Runs locally</p>
-            <p className="mt-1">
-              Your image never leaves the browser for edit, copy, or download.
-              Zero server uploads. CPU use stays on your device only.
-            </p>
+        {!isBusy && message ? (
+          <div className="lg:hidden">
+            <StatusMessage status={status} message={message} />
           </div>
-        </aside>
+        ) : null}
+
+        <div className="mt-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-xs leading-6 text-zinc-500">
+          <p className="text-sm font-medium text-zinc-300">Runs locally</p>
+          <p className="mt-1">
+            Your image never leaves the browser for edit, copy, or download.
+            Zero server uploads. CPU use stays on your device only.
+          </p>
+        </div>
+      </aside>
     </div>
   );
 }

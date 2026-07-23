@@ -202,6 +202,11 @@ async function loadFFmpeg() {
   return ffmpegPromise;
 }
 
+export type VideoExportProgress = {
+  label: string;
+  progress: number | null;
+};
+
 async function runClientFfmpegExport({
   file,
   overlay,
@@ -211,6 +216,7 @@ async function runClientFfmpegExport({
   clipLength,
   gifFps,
   gifWidth,
+  onProgress,
 }: {
   file: File;
   overlay: Blob;
@@ -220,6 +226,7 @@ async function runClientFfmpegExport({
   clipLength: number;
   gifFps: number;
   gifWidth: number;
+  onProgress?: (update: VideoExportProgress) => void;
 }) {
   const [{ fetchFile }, ffmpeg] = await Promise.all([
     import("@ffmpeg/util"),
@@ -229,111 +236,139 @@ async function runClientFfmpegExport({
   const overlayName = "overlay.png";
   const outputName = `hawan-video.${format}`;
 
-  await Promise.allSettled([
-    ffmpeg.deleteFile(inputName),
-    ffmpeg.deleteFile(overlayName),
-    ffmpeg.deleteFile(outputName),
-  ]);
-  await ffmpeg.writeFile(inputName, await fetchFile(file));
-  await ffmpeg.writeFile(overlayName, await fetchFile(overlay));
+  const progressHandler = ({ progress }: { progress: number }) => {
+    const pct = Math.round(clamp(progress, 0, 1) * 100);
+    onProgress?.({
+      label:
+        format === "gif"
+          ? `Converting to GIF… ${pct}%`
+          : `Rendering MP4… ${pct}%`,
+      progress: pct,
+    });
+  };
 
-  const trimArgs =
-    clipLength > 0
-      ? ["-ss", String(Math.max(0, startTime)), "-t", String(clipLength)]
-      : ["-ss", String(Math.max(0, startTime))];
+  ffmpeg.on("progress", progressHandler);
 
-  if (format === "gif") {
-    const maxWidth = clamp(gifWidth, 320, quality === "max" ? 1280 : 720);
-    const fps = clamp(gifFps, 8, quality === "max" ? 18 : 12);
-    const filter = `[0:v][1:v]overlay=0:0:format=auto,fps=${fps},scale='min(${maxWidth},iw)':-2:flags=lanczos,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`;
-    const code = await ffmpeg.exec([
-      ...trimArgs,
-      "-i",
-      inputName,
-      "-i",
-      overlayName,
-      "-filter_complex",
-      filter,
-      "-an",
-      "-loop",
-      "0",
-      outputName,
+  try {
+    await Promise.allSettled([
+      ffmpeg.deleteFile(inputName),
+      ffmpeg.deleteFile(overlayName),
+      ffmpeg.deleteFile(outputName),
     ]);
 
-    if (code !== 0) throw new Error("Could not export GIF.");
-  } else {
-    const args =
-      quality === "max"
-        ? [
-            ...trimArgs,
-            "-i",
-            inputName,
-            "-i",
-            overlayName,
-            "-filter_complex",
-            "[0:v][1:v]overlay=0:0:format=auto[v]",
-            "-map",
-            "[v]",
-            "-map",
-            "0:a?",
-            "-c:v",
-            "libx264",
-            "-crf",
-            "0",
-            "-preset",
-            "ultrafast",
-            "-c:a",
-            "copy",
-            "-movflags",
-            "+faststart",
-            outputName,
-          ]
-        : [
-            ...trimArgs,
-            "-i",
-            inputName,
-            "-i",
-            overlayName,
-            "-filter_complex",
-            "[0:v][1:v]overlay=0:0:format=auto[v]",
-            "-map",
-            "[v]",
-            "-map",
-            "0:a?",
-            "-c:v",
-            "libx264",
-            "-crf",
-            "20",
-            "-preset",
-            "veryfast",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-movflags",
-            "+faststart",
-            outputName,
-          ];
-    const code = await ffmpeg.exec(args);
+    onProgress?.({ label: "Loading video into FFmpeg…", progress: 8 });
+    await ffmpeg.writeFile(inputName, await fetchFile(file));
+    await ffmpeg.writeFile(overlayName, await fetchFile(overlay));
 
-    if (code !== 0) throw new Error("Could not export MP4.");
+    const trimArgs =
+      clipLength > 0
+        ? ["-ss", String(Math.max(0, startTime)), "-t", String(clipLength)]
+        : ["-ss", String(Math.max(0, startTime))];
+
+    onProgress?.({
+      label:
+        format === "gif"
+          ? "Converting to GIF in your browser…"
+          : "Rendering MP4 in your browser…",
+      progress: 12,
+    });
+
+    if (format === "gif") {
+      const maxWidth = clamp(gifWidth, 320, quality === "max" ? 1280 : 720);
+      const fps = clamp(gifFps, 8, quality === "max" ? 18 : 12);
+      const filter = `[0:v][1:v]overlay=0:0:format=auto,fps=${fps},scale='min(${maxWidth},iw)':-2:flags=lanczos,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`;
+      const code = await ffmpeg.exec([
+        ...trimArgs,
+        "-i",
+        inputName,
+        "-i",
+        overlayName,
+        "-filter_complex",
+        filter,
+        "-an",
+        "-loop",
+        "0",
+        outputName,
+      ]);
+
+      if (code !== 0) throw new Error("Could not export GIF.");
+    } else {
+      const args =
+        quality === "max"
+          ? [
+              ...trimArgs,
+              "-i",
+              inputName,
+              "-i",
+              overlayName,
+              "-filter_complex",
+              "[0:v][1:v]overlay=0:0:format=auto[v]",
+              "-map",
+              "[v]",
+              "-map",
+              "0:a?",
+              "-c:v",
+              "libx264",
+              "-crf",
+              "0",
+              "-preset",
+              "ultrafast",
+              "-c:a",
+              "copy",
+              "-movflags",
+              "+faststart",
+              outputName,
+            ]
+          : [
+              ...trimArgs,
+              "-i",
+              inputName,
+              "-i",
+              overlayName,
+              "-filter_complex",
+              "[0:v][1:v]overlay=0:0:format=auto[v]",
+              "-map",
+              "[v]",
+              "-map",
+              "0:a?",
+              "-c:v",
+              "libx264",
+              "-crf",
+              "20",
+              "-preset",
+              "veryfast",
+              "-c:a",
+              "aac",
+              "-b:a",
+              "192k",
+              "-movflags",
+              "+faststart",
+              outputName,
+            ];
+      const code = await ffmpeg.exec(args);
+
+      if (code !== 0) throw new Error("Could not export MP4.");
+    }
+
+    onProgress?.({ label: "Packaging download…", progress: 96 });
+    const data = await ffmpeg.readFile(outputName);
+    await Promise.allSettled([
+      ffmpeg.deleteFile(inputName),
+      ffmpeg.deleteFile(overlayName),
+      ffmpeg.deleteFile(outputName),
+    ]);
+
+    const bytes =
+      typeof data === "string" ? new TextEncoder().encode(data) : data;
+    const output = new Uint8Array(bytes.byteLength);
+    output.set(bytes);
+
+    return new Blob([output.buffer], {
+      type: format === "gif" ? "image/gif" : "video/mp4",
+    });
+  } finally {
+    ffmpeg.off("progress", progressHandler);
   }
-
-  const data = await ffmpeg.readFile(outputName);
-  await Promise.allSettled([
-    ffmpeg.deleteFile(inputName),
-    ffmpeg.deleteFile(overlayName),
-    ffmpeg.deleteFile(outputName),
-  ]);
-
-  const bytes =
-    typeof data === "string" ? new TextEncoder().encode(data) : data;
-  const output = new Uint8Array(bytes.byteLength);
-  output.set(bytes);
-
-  return new Blob([output.buffer], {
-    type: format === "gif" ? "image/gif" : "video/mp4",
-  });
 }
 
 export async function exportVideoInBrowser({
@@ -349,15 +384,21 @@ export async function exportVideoInBrowser({
   height: number;
   format: VideoExportFormat;
   settings: BrowserVideoExportSettings;
-  onProgress?: (message: string) => void;
+  onProgress?: (update: VideoExportProgress | string) => void;
 }) {
-  onProgress?.("Preparing text overlay...");
+  const report = (update: VideoExportProgress) => {
+    onProgress?.(update);
+  };
+
+  report({ label: "Preparing text overlay…", progress: 4 });
   const overlay = await createVideoTextOverlay(width, height, settings);
-  onProgress?.(
-    format === "gif"
-      ? "Converting to GIF in your browser..."
-      : "Rendering MP4 in your browser...",
-  );
+  report({
+    label:
+      format === "gif"
+        ? "Converting to GIF in your browser…"
+        : "Rendering MP4 in your browser…",
+    progress: 10,
+  });
   const blob = await runClientFfmpegExport({
     file,
     overlay,
@@ -367,9 +408,11 @@ export async function exportVideoInBrowser({
     clipLength: settings.clipLength,
     gifFps: settings.gifFps,
     gifWidth: settings.gifWidth,
+    onProgress: report,
   });
 
   if (!blob.size) throw new Error(`Could not export ${format.toUpperCase()}.`);
+  report({ label: "Starting download…", progress: 100 });
 
   return blob;
 }

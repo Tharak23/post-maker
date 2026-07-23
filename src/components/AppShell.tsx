@@ -4,6 +4,8 @@ import { useCallback, useRef, useState } from "react";
 import BannerMaker from "@/components/BannerMaker";
 import ImageMaker from "@/components/ImageMaker";
 import VideoMaker from "@/components/VideoMaker";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type Mode = "post" | "banner" | "video";
 
@@ -49,55 +51,40 @@ export default function AppShell() {
               role="tablist"
               aria-label="Creator mode"
             >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mode === "post"}
-                onClick={() => handleModeChange("post")}
-                className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition ${
-                  mode === "post"
-                    ? "bg-white text-black"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Post
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mode === "banner"}
-                onClick={() => handleModeChange("banner")}
-                className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition ${
-                  mode === "banner"
-                    ? "bg-white text-black"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Banner
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mode === "video"}
-                onClick={() => handleModeChange("video")}
-                className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition ${
-                  mode === "video"
-                    ? "bg-white text-black"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Video
-              </button>
+              {(
+                [
+                  { id: "post", label: "Post" },
+                  { id: "banner", label: "Banner" },
+                  { id: "video", label: "Video" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === tab.id}
+                  onClick={() => handleModeChange(tab.id)}
+                  className={cn(
+                    "flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition",
+                    mode === tab.id
+                      ? "bg-white text-black"
+                      : "text-zinc-400 hover:text-zinc-200",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
             {hasImage ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => replaceRef.current?.()}
-                className="rounded-full border border-zinc-600 px-4 py-2.5 text-sm text-zinc-200 transition hover:border-zinc-400 hover:bg-zinc-900 hover:text-white"
+                className="rounded-full border-zinc-600"
               >
                 Replace {mode === "video" ? "video" : "image"}
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
