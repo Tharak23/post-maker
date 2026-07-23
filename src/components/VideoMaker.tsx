@@ -301,7 +301,7 @@ function TrimEditor({
   }
 
   return (
-    <Card className="border-zinc-800 bg-zinc-950 ring-zinc-800">
+    <Card size="sm" className="border-zinc-800 bg-zinc-950 ring-zinc-800">
       <CardHeader className="gap-1">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-zinc-100">Trim</CardTitle>
@@ -310,11 +310,11 @@ function TrimEditor({
           </Badge>
         </div>
         <CardDescription>
-          Drag the handles for a live preview. Edit times precisely below.
+          Drag handles for a live preview. Edit start/end precisely below.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="grid gap-3">
+      <CardContent className="grid gap-3">
+        <div className="grid gap-2">
           <div className="relative pt-1">
             <div
               aria-hidden
@@ -342,7 +342,7 @@ function TrimEditor({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2.5">
           <div className="grid gap-1.5">
             <Label htmlFor="trim-start" className="text-zinc-300">
               Start
@@ -399,7 +399,7 @@ function TrimEditor({
             {isPlaying ? "Pause clip" : "Preview clip"}
           </Button>
           <p className="text-xs leading-5 text-zinc-500">
-            Loops only the trimmed range while previewing.
+            Loops the trimmed range.
           </p>
         </div>
       </CardContent>
@@ -935,8 +935,8 @@ export default function VideoMaker({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-5 py-6 sm:px-8 lg:flex-row lg:gap-8">
-      <section className="flex min-h-[min(72vh,820px)] flex-1 flex-col gap-3">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col gap-4 overflow-y-auto px-5 py-4 sm:px-8 lg:flex-row lg:gap-6 lg:overflow-hidden lg:py-5">
+      <section className="flex min-h-0 w-full flex-1 flex-col gap-3 lg:min-w-0">
         <div
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -944,14 +944,15 @@ export default function VideoMaker({
           onPointerCancel={handlePointerUp}
           onDragOver={(event) => event.preventDefault()}
           onDrop={handleDrop}
-          className={`relative flex flex-1 items-center justify-center overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-3 sm:p-4 ${
-            hasVideo ? "cursor-move" : ""
-          }`}
+          className={cn(
+            "relative flex min-h-[min(42vh,28rem)] items-center justify-center overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-3 sm:p-4 lg:min-h-0 lg:flex-1",
+            hasVideo && "cursor-move",
+          )}
         >
           {hasVideo ? (
             <div
               ref={stageRef}
-              className="relative flex h-full w-full items-center justify-center"
+              className="relative flex h-full max-h-full w-full max-w-full items-center justify-center"
             >
               <video
                 ref={videoRef}
@@ -994,10 +995,10 @@ export default function VideoMaker({
               </div>
             </div>
           ) : (
-            <div className="flex h-full min-h-[min(56vh,640px)] w-full flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/30 px-6 text-center">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/30 px-6 text-center">
               <p className="text-lg text-zinc-100">Drag and drop a video</p>
               <p className="max-w-sm text-sm leading-6 text-zinc-500">
-                MP4, MOV, M4V, or WEBM · up to 500 MB · DM Sans overlay
+                MP4, MOV, M4V, or WEBM · up to 500 MB · vertical or horizontal
               </p>
               <Button
                 type="button"
@@ -1010,68 +1011,78 @@ export default function VideoMaker({
           )}
         </div>
 
-        {hasVideo ? (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-center text-xs text-zinc-500 sm:text-left">
-              {videoInfo
-                ? `${videoInfo.width} x ${videoInfo.height} px${
-                    formatDuration(videoInfo.duration)
-                      ? ` · ${formatDuration(videoInfo.duration)}`
-                      : ""
-                  }`
-                : "Reading video details"}
-              {" · "}
-              Drag text to position
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleDownload("gif")}
-                disabled={isBusy}
-                className="border-zinc-700"
-              >
-                {isBusy ? <Loader2 className="animate-spin" /> : <Download />}
-                Download GIF
-              </Button>
-              <Button
-                type="button"
-                onClick={() => handleDownload("mp4")}
-                disabled={isBusy}
-              >
-                {isBusy ? <Loader2 className="animate-spin" /> : <Download />}
-                Download MP4
-              </Button>
+        <div className="shrink-0 space-y-3">
+          {hasVideo ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-center text-xs text-zinc-500 sm:text-left">
+                {videoInfo
+                  ? `${videoInfo.width} × ${videoInfo.height} px${
+                      formatDuration(videoInfo.duration)
+                        ? ` · ${formatDuration(videoInfo.duration)}`
+                        : ""
+                    }${
+                      videoInfo.height > videoInfo.width
+                        ? " · vertical"
+                        : videoInfo.width > videoInfo.height
+                          ? " · horizontal"
+                          : ""
+                    }`
+                  : "Reading video details"}
+                {" · "}
+                Drag text to position
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleDownload("gif")}
+                  disabled={isBusy}
+                  className="border-zinc-700"
+                >
+                  {isBusy ? <Loader2 className="animate-spin" /> : <Download />}
+                  Download GIF
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => handleDownload("mp4")}
+                  disabled={isBusy}
+                >
+                  {isBusy ? <Loader2 className="animate-spin" /> : <Download />}
+                  Download MP4
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {isBusy || message ? (
-          <Card className="border-zinc-800 bg-zinc-950 ring-zinc-800">
-            <CardContent className="grid gap-3 pt-(--card-spacing)">
-              {isBusy ? (
-                <Progress value={exportProgress}>
-                  <div className="flex w-full items-center gap-3">
-                    <Loader2 className="size-4 shrink-0 animate-spin text-zinc-300" />
-                    <ProgressLabel className="text-zinc-200">
-                      {busyLabel || "Downloading…"}
-                    </ProgressLabel>
-                    <ProgressValue className="text-zinc-400">
-                      {(formatted) =>
-                        exportProgress == null ? "…" : (formatted ?? `${Math.round(exportProgress)}%`)
-                      }
-                    </ProgressValue>
-                  </div>
-                </Progress>
-              ) : (
-                <StatusMessage status={status} message={message} />
-              )}
-            </CardContent>
-          </Card>
-        ) : null}
+          {isBusy || message ? (
+            <Card className="border-zinc-800 bg-zinc-950 ring-zinc-800">
+              <CardContent className="grid gap-3 pt-(--card-spacing)">
+                {isBusy ? (
+                  <Progress value={exportProgress}>
+                    <div className="flex w-full items-center gap-3">
+                      <Loader2 className="size-4 shrink-0 animate-spin text-zinc-300" />
+                      <ProgressLabel className="text-zinc-200">
+                        {busyLabel || "Downloading…"}
+                      </ProgressLabel>
+                      <ProgressValue className="text-zinc-400">
+                        {(formatted) =>
+                          exportProgress == null
+                            ? "…"
+                            : (formatted ?? `${Math.round(exportProgress)}%`)
+                        }
+                      </ProgressValue>
+                    </div>
+                  </Progress>
+                ) : (
+                  <StatusMessage status={status} message={message} />
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
       </section>
 
-      <aside className="flex w-full shrink-0 flex-col gap-5 lg:w-[24rem]">
+      <aside className="flex w-full shrink-0 flex-col gap-4 lg:h-full lg:w-[22rem] lg:min-h-0 lg:overflow-y-auto lg:pr-1 xl:w-[24rem]">
         <input
           ref={fileInputRef}
           type="file"
@@ -1098,8 +1109,8 @@ export default function VideoMaker({
                 id="video-text"
                 value={settings.text}
                 onChange={(event) => updateSetting("text", event.target.value)}
-                rows={3}
-                className="font-dm-sans border-zinc-800 bg-zinc-950"
+                rows={2}
+                className="font-dm-sans min-h-[4.5rem] border-zinc-800 bg-zinc-950"
                 placeholder="Type text"
               />
             </div>
@@ -1168,14 +1179,14 @@ export default function VideoMaker({
               </div>
             </div>
 
-            <Card className="border-zinc-800 bg-zinc-950 ring-zinc-800">
+            <Card size="sm" className="border-zinc-800 bg-zinc-950 ring-zinc-800">
               <CardHeader className="gap-1">
                 <CardTitle className="text-zinc-100">GIF options</CardTitle>
                 <CardDescription>
                   Common presets stay one tap away. Choose Any for a custom value.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-5">
+              <CardContent className="grid gap-4">
                 <PresetOrAny
                   label="GIF FPS"
                   hint="Lower = smaller file. Higher = smoother motion."
@@ -1270,8 +1281,8 @@ export default function VideoMaker({
         <div className="mt-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-xs leading-6 text-zinc-500">
           <p className="text-sm font-medium text-zinc-300">Video mode</p>
           <p className="mt-1">
-            Trim updates the preview live. MP4 keeps source dimensions. GIF uses
-            browser FFmpeg first, with a server fallback if needed.
+            Preview stays beside options. Vertical and horizontal clips both fit
+            the stage. Trim updates live; MP4 keeps source dimensions.
           </p>
         </div>
       </aside>

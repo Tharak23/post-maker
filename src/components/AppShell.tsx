@@ -29,14 +29,19 @@ export default function AppShell() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="shrink-0 border-b border-zinc-900 px-5 py-6 sm:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5">
+    <div
+      className={cn(
+        "flex flex-col",
+        mode === "video" ? "h-dvh overflow-hidden" : "min-h-dvh",
+      )}
+    >
+      <header className="shrink-0 border-b border-zinc-900 px-5 py-4 sm:px-8 sm:py-5">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4">
           <div>
             <h1 className="text-3xl font-medium tracking-tight text-white sm:text-4xl">
               Post maker - hawan
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-zinc-400 sm:text-base">
+            <p className="mt-1.5 max-w-2xl text-sm text-zinc-400 sm:text-base">
               {mode === "post"
                 ? "Full-resolution posts — pick a template, position branding, copy or download."
                 : mode === "banner"
@@ -90,7 +95,12 @@ export default function AppShell() {
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col">
+      <div
+        className={cn(
+          "flex flex-1 flex-col",
+          mode === "video" && "min-h-0 overflow-hidden",
+        )}
+      >
         {mode === "post" ? (
           <ImageMaker
             onHasImageChange={handleHasImageChange}
